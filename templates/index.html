@@ -1,0 +1,273 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcript Redaction Service</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 30px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #243b55;
+        }
+
+        h2 {
+            color: #243b55;
+        }
+
+        p {
+            color: #555;
+        }
+
+        textarea {
+            width: 100%;
+            height: 180px;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 15px;
+            resize: vertical;
+        }
+
+        .checkboxes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        button {
+            background-color: #2563eb;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #1d4ed8;
+        }
+
+        button:disabled {
+            background-color: #94a3b8;
+            cursor: wait;
+        }
+
+        #results {
+            margin-top: 30px;
+            display: none;
+        }
+
+        #redactedText {
+            background-color: #eef2f7;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+            overflow-wrap: anywhere;
+        }
+
+        th {
+            background-color: #e5e7eb;
+        }
+
+        #error {
+            color: #b91c1c;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Transcript Redaction Service</h1>
+
+        <p>
+            Enter an interview transcript below.
+            This tool will help remove sensitive information
+            such as names, locations, and organizations.
+        </p>
+
+        <h2>Enter Transcript</h2>
+
+        <form id="redactionForm">
+            <textarea
+                id="transcript"
+                placeholder="Paste your transcript here..."
+                maxlength="10000"
+                required
+            ></textarea>
+
+            <h2>Select Information to Remove</h2>
+
+            <div class="checkboxes">
+                <label>
+                    <input type="checkbox" value="PER" checked>
+                    People (PER)
+                </label>
+
+                <label>
+                    <input type="checkbox" value="LOC" checked>
+                    Locations (LOC)
+                </label>
+
+                <label>
+                    <input type="checkbox" value="ORG" checked>
+                    Organizations (ORG)
+                </label>
+
+                <label>
+                    <input type="checkbox" value="MISC" checked>
+                    Other Names (MISC)
+                </label>
+            </div>
+
+            <p>
+                Email addresses are always removed, even if
+                no other categories are selected.
+            </p>
+
+            <button type="submit" id="redactButton">
+                Redact Transcript
+            </button>
+        </form>
+
+        <p id="error" role="alert"></p>
+
+        <div id="results">
+            <h2>Redacted Transcript</h2>
+            <div id="redactedText"></div>
+
+            <h2>Removed Information</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Original Text</th>
+                        <th>Confidence</th>
+                    </tr>
+                </thead>
+                <tbody id="entityTable"></tbody>
+            </table>
+
+            <p>
+                Important: A human must review the transcript
+                before it is shared. The AI may miss some
+                identifying information.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById("redactionForm");
+        const button = document.getElementById("redactButton");
+        const error = document.getElementById("error");
+        const results = document.getElementById("results");
+
+        form.addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            error.textContent = "";
+            results.style.display = "none";
+
+            const text = document.getElementById("transcript").value;
+
+            if (text.length < 1 || text.length > 10000) {
+                error.textContent = "Text must be 1 to 10,000 characters.";
+                return;
+            }
+
+            const types = Array.from(
+                document.querySelectorAll(
+                    '.checkboxes input[type="checkbox"]:checked'
+                )
+            ).map(checkbox => checkbox.value);
+
+            button.disabled = true;
+            button.textContent = "Redacting...";
+
+            try {
+                const response = await fetch("/api/redact", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ text: text, types: types })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Redaction failed.");
+                }
+
+                document.getElementById("redactedText").textContent =
+                    data.redacted_text;
+
+                const table = document.getElementById("entityTable");
+                table.innerHTML = "";
+
+                for (const entity of data.entities) {
+                    const row = document.createElement("tr");
+
+                    const typeCell = document.createElement("td");
+                    typeCell.textContent = entity.type;
+
+                    const textCell = document.createElement("td");
+                    textCell.textContent = entity.text;
+
+                    const scoreCell = document.createElement("td");
+                    scoreCell.textContent =
+                        (Number(entity.score) * 100).toFixed(1) + "%";
+
+                    row.appendChild(typeCell);
+                    row.appendChild(textCell);
+                    row.appendChild(scoreCell);
+                    table.appendChild(row);
+                }
+
+                results.style.display = "block";
+
+            } catch (err) {
+                error.textContent = err.message ||
+                    "Unable to connect to the server.";
+            } finally {
+                button.disabled = false;
+                button.textContent = "Redact Transcript";
+            }
+        });
+    </script>
+</body>
+</html>
