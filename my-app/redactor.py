@@ -92,15 +92,22 @@ class Redactor:
 
     model_name = MODEL_NAME  
 
-    def __init__(self, model_name=MODEL_NAME, stride=128):
+    def __init__(
+        self,
+        model_name=MODEL_NAME,
+        stride=128,
+        min_score=DEFAULT_MIN_SCORE,
+    ):
         from transformers import pipeline
 
         self.model_name = model_name
+        self.min_score = min_score
+
         self._ner = pipeline(
             "ner",
             model=model_name,
-            aggregation_strategy="simple",  
-            stride=stride,  
+            aggregation_strategy="simple",
+            stride=stride,
         )
 
     def find_entities(self, text):
@@ -117,11 +124,15 @@ class Redactor:
             })
         return results
 
-    def redact(self, text, types=None, min_score=DEFAULT_MIN_SCORE):
-        """Redact `text`. Returns redacted_text, entities, and model name.
+    def redact(self, text, types=None, min_score=None):
+        if min_score is None:
+            min_score = self.min_score
 
-        Raises ValueError for invalid `types`.
-        """
-        result = redact_text(text, self.find_entities(text), types, min_score)
+        result = redact_text(
+            text,
+            self.find_entities(text),
+            types,
+            min_score,
+        )
         result["model"] = self.model_name
         return result
