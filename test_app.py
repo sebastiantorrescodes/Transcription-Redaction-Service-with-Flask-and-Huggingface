@@ -14,7 +14,7 @@ import sys
 import pytest
 
 # Make app.py and redactor.py importable no matter where pytest is launched.
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "my-app"))
 
 from app import create_app  # noqa: E402
 from redactor import DEFAULT_MIN_SCORE, MODEL_NAME, redact_text  # noqa: E402
