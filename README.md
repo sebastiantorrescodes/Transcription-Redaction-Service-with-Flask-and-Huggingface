@@ -13,7 +13,9 @@ The output is a first pass, not a guarantee. A person should still review every 
 
 - `my-app/redactor.py`: loads the model and does the redaction (no Flask code)
 - `my-app/app.py`: the Flask app and routes
-- `templates/index.html`: the web page
+- `my-app/templates/index.html`: the web page
+- `test_app.py`: tests (they use a fake model, so nothing is downloaded)
+- `client_example.py`: example script that calls the API
 
 ## Setup
 
@@ -24,11 +26,20 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-The first run downloads the model (about 400 MB).
-
 ## Run code
 
 ```
 cd my-app
+.venv\Scripts\activate        # macOS/Linux: source .venv/bin/activate
 flask run
+```
+
+Then open http://127.0.0.1:5000. The first start downloads the model (about 400 MB), so it can take a few minutes before the server is ready.
+
+## Run tests
+
+From the project root, with the virtual environment active:
+
+```
+python -m pytest -v
 ```
